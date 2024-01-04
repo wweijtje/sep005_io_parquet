@@ -25,8 +25,8 @@ with open('README.rst', 'r') as f:
 
 if __name__ == '__main__':
     setup(
-        name='sep005_io_fbgs',
-        description='FBGS file read functions compliant with SDyPy SEP005',
+        name='sep005_io_parquet',
+        description='Parquet file read functions compliant with SDyPy SEP005',
         long_description=readme,
         license='MIT license',
         url='https://github.com/OWI-Lab',
@@ -35,8 +35,8 @@ if __name__ == '__main__':
         author_email='wout.weijtjens@vub.be',
         maintainer='Wout Weijtjens',
         maintainer_email='wout.weijtjens@vub.be',
-        keywords=['io','fbgs','SEP005'],
-        packages=['sep005_io_fbgs'],
+        keywords=['io','parquet','SEP005'],
+        packages=['sep005_io_parquet'],
         classifiers=['Development Status :: 3 - Alpha',
                      'Intended Audience :: Developers',
                      'Programming Language :: Python :: 3.6']
