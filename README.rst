@@ -1,4 +1,4 @@
-SEP005 FBGS io
+SEP005 parquet io
 -----------------------
 
 Basic package to import data collected from FBGS data compliant with
@@ -9,13 +9,10 @@ Using the package
 
     .. code-block:: python
 
-        from sep005_io_fbgs import read_fbgs
+        from sep005_io_parquet import read_parquet
 
-        file_path = # Path to the tdms file of interest
-        signals = read_fbgs(file_path)
+        file_path = # Path to the parquet file of interest
+        signals = read_parquet(file_path)
 
 Acknowledgements
 ----------------
-This package was developed in the framework of the
-`Interreg Smart Circular Bridge project
-<https://vb.nweurope.eu/projects/project-search/smart-circular-bridge-scb-for-pedestrians-and-cyclists-in-a-circular-built-environment/>`_
