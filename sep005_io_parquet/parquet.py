@@ -85,6 +85,7 @@ class ParquetFileReader:
         if self.verbose:
             print('QA (NaN samples) : Imported signals contain no NaNs')
 
+
 def read_parquet(path: Union[str, Path], **kwargs) -> list:
     """
     Primary function to read fbgs files based on path
