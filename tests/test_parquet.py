@@ -1,9 +1,11 @@
 import os
+import sys
 
 import pytest
 from sdypy_sep005.sep005 import assert_sep005
 
 import pandas as pd
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sep005_io_parquet.parquet import read_parquet
 
