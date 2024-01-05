@@ -5,7 +5,7 @@ from sdypy_sep005.sep005 import assert_sep005
 
 import pandas as pd
 
-from . import read_parquet
+from sep005_io_parquet.parquet import read_parquet
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(current_dir, 'static')
