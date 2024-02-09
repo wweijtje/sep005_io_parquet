@@ -115,7 +115,7 @@ class ParquetFileReader:
         end_timestamp = self.df.index[-1]
         dt = int(1/self.fs*1e6) # micro seconds
 
-        continuous_index = pd.date_range(start=self.start_timestamp, end=end_timestamp, freq=f'{dt}U')
+        continuous_index = pd.date_range(start=self.start_timestamp, end=end_timestamp, freq=f'{dt}us')
         df_rs = self.df.reindex(continuous_index)
 
         # Now, perform linear interpolation
