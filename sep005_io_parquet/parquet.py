@@ -17,15 +17,11 @@ class ParquetFileReader:
     def __init__(self, filepath: str, qa=True, verbose=False, unit=''):
         self.filepath = filepath
 
-        self.df = pd.read_parquet(filepath)
-        self.channels = list(self.df.columns)
-        self.start_timestamp = pd.to_datetime(self.df.index[0])
+        self._df = pd.read_parquet(filepath)
+        self._df.index = pd.to_datetime(self._df.index) # Convert to datetimeindex
+        self._update_properties()
 
-        self.fs = 1 / (self.df.index[1] - self.df.index[0]).total_seconds()
-        self.duration = len(self.df) / self.fs
-        self.time = (pd.to_datetime(self.df.index) - self.start_timestamp).total_seconds()
-
-        self.unit = ''
+        self.unit = unit
         self.verbose = verbose
 
         if self.verbose:
@@ -34,6 +30,28 @@ class ParquetFileReader:
         if qa:
             self.missing_samples
             self.nan_samples
+
+    @property
+    def df(self):
+        return self._df
+
+    @df.setter
+    def df(self, new_df):
+        self._df = new_df
+        self._df.index = pd.to_datetime(new_df.index)
+        self._update_properties() # Also update all related properties
+
+    def _update_properties(self):
+        """
+        Compute properties for ease of use whenever a dataframe is updated
+
+        :return:
+        """
+        self.channels = list(self.df.columns)
+        self.start_timestamp = self.df.index[0]
+        self.fs = 1 / (self.df.index[1] - self.df.index[0]).total_seconds()  # Sampling frequency in Hz
+        self.duration = len(self.df) / self.fs
+        self.time = (self.df.index - self.start_timestamp).total_seconds()
 
     def to_sep005(self):
         """_summary_
@@ -84,6 +102,30 @@ class ParquetFileReader:
             raise ValueError('Channels contain NaN samples')
         if self.verbose:
             print('QA (NaN samples) : Imported signals contain no NaNs')
+
+    def resolve_missing_samples(self, inplace=True, **kwargs):
+        """
+        Interpolate missing samples using a linear interpolation
+
+        Additional kwargs are passed on directly in pd.DataFrame.interpolate
+
+        :return:
+        """
+
+        end_timestamp = self.df.index[-1]
+        dt = int(1/self.fs*1e6) # micro seconds
+
+        continuous_index = pd.date_range(start=self.start_timestamp, end=end_timestamp, freq=f'{dt}U')
+        df_rs = self.df.reindex(continuous_index)
+
+        # Now, perform linear interpolation
+        df_interpolated = df_rs.interpolate(method='linear', **kwargs)
+
+        if inplace:
+            self.df = df_interpolated
+        else:
+            return df_interpolated
+
 
 
 def read_parquet(path: Union[str, Path], **kwargs) -> list:
