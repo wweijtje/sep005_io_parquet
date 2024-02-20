@@ -19,6 +19,7 @@ class ParquetFileReader:
 
         self._df = pd.read_parquet(filepath)
         self._df.index = pd.to_datetime(self._df.index) # Convert to datetimeindex
+        self._df.sort_index(inplace=True) # Sort the index
         self._update_properties()
 
         self.unit = unit
