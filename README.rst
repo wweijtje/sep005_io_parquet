@@ -1,8 +1,7 @@
-SEP005 parquet io
+SEP005 24SEA parquet io
 -----------------------
 
-Basic package to import data collected from FBGS data compliant with
-SDyPy format for timeseries as proposed in SEP005.
+Basic package to import data from parquet files as stored by 24SEA's SHM solutions.
 
 Using the package
 ------------------
