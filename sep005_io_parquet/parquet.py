@@ -84,13 +84,11 @@ class ParquetFileReader:
         Check if the sampling frequency is maintained properly
         :return:
         """
-        # check the index matches the sampling frequency
-        differences = np.diff(self.time)  # Calculate the differences between consecutive elements
-        is_equidistant = np.allclose(differences, differences[0] * np.ones(
-            len(differences)))  # Check if all differences are the same, up to precision
-        if not is_equidistant:
+        diff_diff = np.diff(self.time,n=2)
+        is_consecutive = np.allclose(diff_diff,0)
+        if not is_consecutive:
             raise ValueError('Samples missing from channels')
-        if self.verbose and is_equidistant:
+        if self.verbose and is_consecutive:
             print('QA (missing samples) : Imported signals are equidistant spaced on index')
 
     @property
