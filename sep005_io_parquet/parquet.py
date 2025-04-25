@@ -85,10 +85,10 @@ class ParquetFileReader:
         :return:
         """
         # check the index matches the sampling frequency
-        differences = np.diff(self.time)  # Calculate the differences between consecutive elements
-        is_equidistant = np.allclose(differences, differences[0] * np.ones(
-            len(differences)))  # Check if all differences are the same, up to precision
+        differences_2nd_order = np.diff(self.time, n=2)  # Calculate the 2nd order differences to find gaps
+        is_equidistant = np.all(np.isclose(differences_2nd_order, 0))  # Check if all differences are the same, up to precision
         if not is_equidistant:
+            differences = np.diff(self.time) # Slower but required to estimate the number of missing samples
             no_missing_samples = round(sum(differences*self.fs-1))
             raise ValueError(f'{no_missing_samples} Sample(s) missing from all channels')
         if self.verbose and is_equidistant:
