@@ -89,7 +89,8 @@ class ParquetFileReader:
         is_equidistant = np.allclose(differences, differences[0] * np.ones(
             len(differences)))  # Check if all differences are the same, up to precision
         if not is_equidistant:
-            raise ValueError('Samples missing from channels')
+            no_missing_samples = round(sum(differences*self.fs-1))
+            raise ValueError(f'{no_missing_samples} Sample(s) missing from all channels')
         if self.verbose and is_equidistant:
             print('QA (missing samples) : Imported signals are equidistant spaced on index')
 
@@ -99,8 +100,12 @@ class ParquetFileReader:
         Check if there are samples as NaN
         :return:
         """
-        if len(self.df) != len(self.df.dropna()):
-            raise ValueError('Channels contain NaN samples')
+        nan_counts = self.df.isnull().sum()
+        nan_counts = nan_counts[nan_counts > 0]
+
+        if not nan_counts.empty:
+            summary = ', '.join(f'{col}: {count}' for col, count in nan_counts.items())
+            raise ValueError(f'Channels contain NaN samples. NaN counts: ({summary})')
         if self.verbose:
             print('QA (NaN samples) : Imported signals contain no NaNs')
 

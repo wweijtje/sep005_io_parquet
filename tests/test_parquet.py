@@ -38,18 +38,21 @@ def test_qa(filename):
     pf = ParquetFileReader(file_path, qa=True)
 
     # Inserting a NaN should trip nan_samples
-    pf.df.iloc[10, 0] = np.nan
+    pf.df.iloc[10, 1] = np.nan
 
     pf.missing_samples # Should still be fine
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as excinfo:
         pf.nan_samples
+    assert 'Channels contain NaN samples' in str(excinfo.value)
+    assert f'({pf.df.columns[1]}: 1)' in str(excinfo.value)
 
-    # Removing a row should trip missing_samples
-    pf.df = pf.df.drop(index=pf.df.iloc[10].name)
-
-    pf.nan_samples  # Should still be fine
-    with pytest.raises(ValueError):
-        pf.missing_samples
+    # Removing 5 row(s) should trip missing_samples
+    for i in range(5):
+        pf.df = pf.df.drop(index=pf.df.iloc[10].name)
+        pf.nan_samples  # Should still be fine
+        with pytest.raises(ValueError) as excinfo:
+            pf.missing_samples
+        assert f'{i+1} Sample(s) missing from all channels' in str(excinfo.value) # Increasing values of the number of missing samples
 
 @pytest.mark.parametrize("filename", GOOD_FILES)
 def test_df_update(filename):
