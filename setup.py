@@ -37,6 +37,13 @@ if __name__ == '__main__':
         maintainer_email='wout.weijtjens@vub.be',
         keywords=['io','parquet','SEP005'],
         packages=['sep005_io_parquet'],
+        install_requires=[
+            "numpy>=1.11.0",
+            "sdypy-sep005>=0.1.0",
+            "pytz",
+            "pandas",
+            "pyarrow",
+        ],
         classifiers=['Development Status :: 3 - Alpha',
                      'Intended Audience :: Developers',
                      'Programming Language :: Python :: 3.6']
