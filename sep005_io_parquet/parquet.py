@@ -17,8 +17,7 @@ class ParquetFileReader:
     def __init__(self, filepath: str, qa=True, verbose=False, unit=''):
         self.filepath = filepath
 
-        self._df = pd.read_parquet(filepath)
-        self._df.index = pd.to_datetime(self._df.index) # Convert to datetimeindex
+        self._df = self._set_datetime_index(pd.read_parquet(filepath))
         self._df.sort_index(inplace=True) # Sort the index
         self._update_properties()
 
@@ -31,6 +30,47 @@ class ParquetFileReader:
         if qa:
             self.missing_samples
             self.nan_samples
+
+    @staticmethod
+    def _set_datetime_index(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Make sure the timestamps are in a DatetimeIndex. Two layouts are supported:
+
+        - the timestamps are stored as the index (datetime typed)
+        - the timestamps are stored in a column (anywhere in the frame), either datetime typed
+          or as integer epoch values (s, ms, us or ns, inferred from the magnitude)
+
+        :return: DataFrame with a DatetimeIndex and only the data channels as columns
+        """
+        if isinstance(df.index, pd.DatetimeIndex):
+            return df
+
+        # Index is a plain range index, look for the timestamp column
+        ts_col = next((c for c in df.columns if pd.api.types.is_datetime64_any_dtype(df[c])), None)
+        if ts_col is None:
+            candidates = [c for c in df.columns
+                          if str(c).lower() in ('timestamp', 'time', 'datetime', 'date')]
+            if not candidates:
+                if isinstance(df.index, pd.RangeIndex):
+                    raise ValueError('Could not find a timestamp column or index in the parquet file')
+                # Non-range index, e.g. strings: let pandas try to parse it
+                df.index = pd.to_datetime(df.index)
+                return df
+            ts_col = candidates[0]
+
+        ts = df[ts_col]
+        if pd.api.types.is_numeric_dtype(ts):
+            # Infer the epoch resolution from the magnitude of the values
+            magnitude = abs(ts.iloc[0])
+            unit = next(u for u, limit in (('s', 1e11), ('ms', 1e14), ('us', 1e17), ('ns', np.inf))
+                        if magnitude < limit)
+            index = pd.DatetimeIndex(pd.to_datetime(ts.to_numpy(), unit=unit, utc=True), name=ts_col)
+        else:
+            index = pd.DatetimeIndex(pd.to_datetime(ts), name=ts_col)
+
+        df = df.drop(columns=ts_col)
+        df.index = index
+        return df
 
     @property
     def df(self):
@@ -50,9 +90,10 @@ class ParquetFileReader:
         """
         self.channels = list(self.df.columns)
         self.start_timestamp = self.df.index[0]
-        self.fs = 1 / (self.df.index[1] - self.df.index[0]).total_seconds()  # Sampling frequency in Hz
-        self.duration = len(self.df) / self.fs
         self.time = (self.df.index - self.start_timestamp).total_seconds()
+        # Sampling frequency in Hz, from the median step so timestamp jitter or gaps do not matter
+        self.fs = 1 / pd.Series(self.df.index).diff().median().total_seconds()
+        self.duration = len(self.df) / self.fs
 
     def to_sep005(self):
         """_summary_
@@ -86,7 +127,8 @@ class ParquetFileReader:
         """
         # check the index matches the sampling frequency
         differences_2nd_order = np.diff(self.time, n=2)  # Calculate the 2nd order differences to find gaps
-        is_equidistant = np.all(np.isclose(differences_2nd_order, 0))  # Check if all differences are the same, up to precision
+        # Timestamps may jitter slightly (e.g. rounding to us), a missing sample is a full period off
+        is_equidistant = np.all(np.isclose(differences_2nd_order, 0, atol=0.01 / self.fs))
         if not is_equidistant:
             differences = np.diff(self.time) # Slower but required to estimate the number of missing samples
             no_missing_samples = round(sum(differences*self.fs-1))
@@ -118,11 +160,18 @@ class ParquetFileReader:
         :return:
         """
 
-        end_timestamp = self.df.index[-1]
-        dt = int(1/self.fs*1e6) # micro seconds
+        dt = round(1/self.fs*1e6) # micro seconds
 
-        continuous_index = pd.date_range(start=self.start_timestamp, end=end_timestamp, freq=f'{dt}us')
-        df_rs = self.df.reindex(continuous_index)
+        # Position of every sample on the ideal grid, robust against small jitter on the timestamps
+        positions = np.round(self.time * self.fs).astype(int)
+        grid = pd.date_range(start=self.start_timestamp, periods=positions[-1] + 1, freq=f'{dt}us')
+
+        # Existing samples keep their original timestamp, the missing ones get the grid timestamp
+        new_index = pd.Series(grid, index=range(len(grid)))
+        new_index.iloc[positions] = self.df.index
+
+        df_rs = self.df.set_axis(positions).reindex(range(len(grid)))
+        df_rs.index = pd.DatetimeIndex(new_index, name=self.df.index.name)
 
         # Now, perform linear interpolation
         df_interpolated = df_rs.interpolate(method='linear', **kwargs)
