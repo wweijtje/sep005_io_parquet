@@ -7,6 +7,8 @@ import pytest
 from sdypy_sep005.sep005 import assert_sep005
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sep005_io_parquet.parquet import read_parquet, ParquetFileReader
@@ -26,6 +28,36 @@ def test_compliance_sep005(filename):
 
     assert len(signals) != 0  # Not an empty response
     assert_sep005(signals)
+
+@pytest.mark.parametrize("filename", GOOD_FILES)
+def test_start_timestamp(filename):
+    """
+    The start timestamp of the pf object should match the first timestamp stored in the parquet file,
+    independent of how the timestamps are stored (index or column, datetime or integer epoch)
+    """
+    file_path = os.path.join(static_dir, 'good', filename)
+
+    # Read the raw file with pyarrow, to not depend on the logic of the reader
+    table = pq.read_table(file_path)
+    ts_field = next((f for f in table.schema if pa.types.is_timestamp(f.type)), None) \
+        or table.schema.field('timestamp')
+    first_raw = table[ts_field.name][0]
+
+    if pa.types.is_timestamp(ts_field.type):
+        expected = pd.Timestamp(first_raw.as_py())
+    else:  # Integer epoch in nanoseconds
+        expected = pd.Timestamp(first_raw.as_py(), unit='ns', tz='UTC')
+    if expected.tzinfo is None:
+        expected = expected.tz_localize('UTC')
+
+    pf = ParquetFileReader(file_path, qa=False)
+    assert pf.start_timestamp == expected
+    assert pf.df.index[0] == expected
+
+    # Also propagated to the SEP005 signals
+    for signal in pf.to_sep005():
+        assert pd.Timestamp(signal['start_timestamp']) == expected
+
 
 @pytest.mark.parametrize("filename", GOOD_FILES)
 def test_qa(filename):
